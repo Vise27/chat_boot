@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente de Decoración</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: 20%;
+        }
+
+        .assistant-message {
+            background-color: #f5f5f5;
+            margin-right: 20%;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #1976d2;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .product-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: white;
+        }
+
+        .product-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .product-card p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .template-card {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            background-color: white;
+        }
+
+        .template-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .template-card .price {
+            color: #2196f3;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .template-card .discount {
+            color: #4caf50;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            margin: 20px 0;
+        }
+
+        .error {
+            color: #f44336;
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Asistente de Decoración</h1>
+        <div class="chat-container" id="chatContainer"></div>
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Escribe tu consulta...">
+            <button onclick="sendMessage()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = localStorage.getItem('session_id') || '';
+        let lastProducts = JSON.parse(localStorage.getItem('last_products') || '[]');
+
+        function addMessage(content, isUser = false) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
+            messageDiv.textContent = content;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function displayProducts(products) {
+            const chatContainer = document.getElementById('chatContainer');
+            const productsGrid = document.createElement('div');
+            productsGrid.className = 'products-grid';
+
+            products.forEach(product => {
+                const productCard = document.createElement('div');
+                productCard.className = 'product-card';
+                productCard.innerHTML = `
+                    <h3>${product.name}</h3>
+                    <p>${product.description}</p>
+                    <p>SKU: ${product.sku}</p>
+                `;
+                productsGrid.appendChild(productCard);
+            });
+
+            chatContainer.appendChild(productsGrid);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function displayTemplates(templates) {
+            const chatContainer = document.getElementById('chatContainer');
+            const templatesGrid = document.createElement('div');
+            templatesGrid.className = 'templates-grid';
+
+            templates.forEach(template => {
+                const templateCard = document.createElement('div');
+                templateCard.className = 'template-card';
+                templateCard.innerHTML = `
+                    <h3>${template.name}</h3>
+                    <p>${template.description}</p>
+                    <p>Ambiente: ${template.room_type}</p>
+                    <p>Estilo: ${template.style}</p>
+                    <p class="price">Precio: $${template.total_price}</p>
+                    ${template.discount ? `<p class="discount">Descuento: ${template.discount}%</p>` : ''}
+                `;
+                templatesGrid.appendChild(templateCard);
+            });
+
+            chatContainer.appendChild(templatesGrid);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (!message) return;
+
+            // Mostrar mensaje del usuario
+            addMessage(message, true);
+            messageInput.value = '';
+
+            // Mostrar indicador de carga
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading';
+            loadingDiv.textContent = 'Buscando...';
+            document.getElementById('chatContainer').appendChild(loadingDiv);
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: sessionId,
+                        last_products: lastProducts
+                    })
+                });
+
+                const data = await response.json();
+
+                // Remover indicador de carga
+                loadingDiv.remove();
+
+                if (response.ok) {
+                    // Actualizar historial
+                    sessionId = data.session_id;
+                    lastProducts = data.last_products;
+                    localStorage.setItem('session_id', sessionId);
+                    localStorage.setItem('last_products', JSON.stringify(lastProducts));
+
+                    // Mostrar respuesta
+                    addMessage(data.response);
+
+                    // Mostrar productos o plantillas
+                    if (data.products) {
+                        displayProducts(data.products);
+                    }
+                    if (data.templates) {
+                        displayTemplates(data.templates);
+                    }
+                } else {
+                    addMessage(`Error: ${data.detail}`, false);
+                }
+            } catch (error) {
+                loadingDiv.remove();
+                addMessage('Error al conectar con el servidor', false);
+            }
+        }
+
+        // Permitir enviar mensaje con Enter
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html> 
