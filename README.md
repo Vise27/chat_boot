@@ -11,6 +11,7 @@ Un sistema de IA que ayuda a encontrar productos de decoración y muebles perfec
 - **Limpieza automática** de conversaciones antiguas
 - **Interfaz web moderna** y responsive
 - **API REST** con FastAPI
+- **Integración con GROQ** para procesamiento de lenguaje natural
 
 ## 🚀 Instalación
 
@@ -18,7 +19,7 @@ Un sistema de IA que ayuda a encontrar productos de decoración y muebles perfec
 
 - Python 3.8+
 - PostgreSQL (para la base de datos)
-- Ollama (para el modelo LLM local)
+- Cuenta en [GROQ](https://console.groq.com/) para obtener API key
 
 ### 1. Clonar el repositorio
 
@@ -40,14 +41,15 @@ source venv/bin/activate  # En Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Configurar base de datos
+### 4. Configurar base de datos y API
 
 1. Crear una base de datos PostgreSQL
-2. Configurar las variables de entorno en un archivo `.env`:
+2. Obtener tu API key de GROQ desde [console.groq.com](https://console.groq.com/)
+3. Configurar las variables de entorno en un archivo `.env`:
 
 ```env
 DATABASE_URL=postgresql://usuario:password@localhost:5432/nombre_db
-OLLAMA_BASE_URL=http://localhost:11434
+GROQ_API_KEY=tu_api_key_de_groq_aqui
 ```
 
 ### 5. Ejecutar migraciones
@@ -106,7 +108,7 @@ curl -X POST "http://localhost:8000/chat" \
 ├── main.py                 # Servidor FastAPI principal
 ├── db.py                   # Configuración y conexión a base de datos
 ├── product_analyzer.py     # Análisis inteligente de productos
-├── llama_utils.py          # Utilidades para LLM
+├── llama_utils.py          # Utilidades para LLM (GROQ)
 ├── text_utils.py           # Utilidades de procesamiento de texto
 ├── design_template_analyzer.py  # Análisis de plantillas de diseño
 ├── index.html              # Interfaz web
@@ -123,7 +125,7 @@ curl -X POST "http://localhost:8000/chat" \
 ### Variables de entorno
 
 - `DATABASE_URL`: URL de conexión a PostgreSQL
-- `OLLAMA_BASE_URL`: URL del servidor Ollama
+- `GROQ_API_KEY`: Tu API key de GROQ para procesamiento de lenguaje natural
 - `LOG_LEVEL`: Nivel de logging (INFO, DEBUG, etc.)
 
 ### Configuración del sistema
@@ -135,6 +137,14 @@ CLEANUP_INTERVAL = 30 * 60        # Limpieza cada 30 minutos
 SESSION_MAX_AGE = 2 * 60 * 60     # Sesiones expiran en 2 horas
 MAX_SESSIONS = 1000               # Máximo 1000 archivos de sesión
 MAX_CONVERSATIONS_SIZE_MB = 50    # Máximo 50MB total
+```
+
+### Configuración de GROQ
+
+El sistema usa el modelo `llama3-70b-8192` de GROQ. Puedes cambiar el modelo en `llama_utils.py`:
+
+```python
+"model": "llama3-70b-8192",  # Cambiar por otro modelo disponible
 ```
 
 ## 🧪 Pruebas
@@ -173,13 +183,21 @@ Si tienes problemas o preguntas:
 
 ## 🚀 Roadmap
 
-- [ ] Integración con más modelos LLM
+- [ ] Integración con más proveedores de LLM
 - [ ] Análisis de imágenes de productos
 - [ ] Recomendaciones personalizadas
 - [ ] Integración con APIs de e-commerce
 - [ ] Sistema de usuarios y preferencias
 - [ ] Chatbot con voz
 - [ ] Aplicación móvil
+
+## 💡 Sobre GROQ
+
+Este proyecto utiliza [GROQ](https://groq.com/) para el procesamiento de lenguaje natural. GROQ ofrece:
+- **Velocidad**: Respuestas ultra-rápidas
+- **Fiabilidad**: Alta disponibilidad
+- **Escalabilidad**: Manejo de múltiples solicitudes simultáneas
+- **Modelos de última generación**: Acceso a modelos como Llama 3
 
 ---
 
