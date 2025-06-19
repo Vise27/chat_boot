@@ -1,61 +1,26 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual environments
+# Virtual environment
 venv/
-env/
-ENV/
-.venv
 .env
 
-# Logs and conversations
-logs/
-*.log
-conversations/
+# Python cache
+__pycache__/
+*.pyc
 
 # IDE
 .vscode/
 .idea/
-*.swp
-*.swo
 
 # OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
 # Database
 *.db
 *.sqlite
-*.sqlite3
 
 # Environment variables
 .env
 .env.local
-.env.production
 secrets.json
 
 # LLM models and cache
@@ -69,4 +34,7 @@ cache/
 *.tmp
 *.temp
 temp/
-tmp/ 
+tmp/
+
+# Only ignore conversation files, not the logs directory structure
+logs/conversations/*.json 
