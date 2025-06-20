@@ -1,5 +1,7 @@
 import unicodedata
 import re
+from difflib import SequenceMatcher
+from typing import List, Dict, Tuple
 
 COLOR_VARIANTS = {
     # Gris
@@ -52,6 +54,58 @@ COLOR_VARIANTS = {
     "marrónes": "marrón"
 }
 
+# Diccionario de errores ortográficos comunes
+COMMON_MISTAKES = {
+    # Errores de tildes
+    "silla": ["sila", "sillas", "sillas", "silla"],
+    "mesa": ["mesa", "mesas", "mesa"],
+    "sofa": ["sofá", "sofa", "sofas", "sofás"],
+    "lampara": ["lámpara", "lampara", "lamparas", "lámparas"],
+    "mueble": ["muebles", "mueble"],
+    "estanteria": ["estantería", "estanteria", "estanterias", "estanterías"],
+    "cama": ["camas", "cama"],
+    "armario": ["armarios", "armario"],
+    
+    # Errores de escritura común
+    "silla": ["sila", "silla", "sillas", "silla"],
+    "mesa": ["mesa", "mesas", "mesa"],
+    "sofa": ["sofa", "sofá", "sofas", "sofás"],
+    "lampara": ["lampara", "lámpara", "lamparas", "lámparas"],
+    "mueble": ["muebles", "mueble"],
+    "estanteria": ["estanteria", "estantería", "estanterias", "estanterías"],
+    "cama": ["camas", "cama"],
+    "armario": ["armarios", "armario"],
+    
+    # Errores de letras duplicadas o faltantes
+    "silla": ["sila", "silla", "sillas", "silla"],
+    "mesa": ["mesa", "mesas", "mesa"],
+    "sofa": ["sofa", "sofá", "sofas", "sofás"],
+    "lampara": ["lampara", "lámpara", "lamparas", "lámparas"],
+    "mueble": ["muebles", "mueble"],
+    "estanteria": ["estanteria", "estantería", "estanterias", "estanterías"],
+    "cama": ["camas", "cama"],
+    "armario": ["armarios", "armario"],
+}
+
+# Sinónimos y variaciones de productos
+PRODUCT_SYNONYMS = {
+    "silla": ["silla", "asiento", "sillón", "butaca", "taburete", "banqueta"],
+    "mesa": ["mesa", "tabla", "escritorio", "mesita", "mesilla"],
+    "sofa": ["sofá", "sofa", "sillón", "diván", "canapé", "tresillo"],
+    "lampara": ["lámpara", "lampara", "luminaria", "foco", "bombilla"],
+    "mueble": ["mueble", "mobiliario", "mobiliario", "muebles"],
+    "estanteria": ["estantería", "estanteria", "estante", "repisa", "biblioteca"],
+    "cama": ["cama", "lecho", "colchón", "litera", "nido"],
+    "armario": ["armario", "ropero", "closet", "guardarropa", "vestidor"],
+    "escritorio": ["escritorio", "mesa de trabajo", "bureau", "escritorio"],
+    "velador": ["velador", "mesita de noche", "mesilla", "lámpara de noche"],
+    "biombo": ["biombo", "separador", "divisor", "pantalla"],
+    "cortina": ["cortina", "persiana", "estore", "tela"],
+    "alfombra": ["alfombra", "tapete", "moqueta", "carpeta"],
+    "cojin": ["cojín", "cojin", "almohadón", "cushion"],
+    "fundas": ["fundas", "fundas", "cubiertas", "protectores"]
+}
+
 def normalize_color(color: str) -> str:
     """Normaliza variantes de colores a su forma canónica"""
     color = normalize_text(color)
@@ -87,7 +141,89 @@ def contains_word(text: str, word: str) -> bool:
     """Verifica si un texto contiene una palabra (sin sensibilidad a tildes)"""
     return normalize_text(word) in normalize_text(text)
 
+def similarity(a: str, b: str) -> float:
+    """Calcula la similitud entre dos strings usando SequenceMatcher"""
+    return SequenceMatcher(None, a, b).ratio()
 
+def correct_common_mistakes(word: str) -> str:
+    """Corrige errores ortográficos comunes"""
+    normalized_word = normalize_text(word)
+    
+    # Buscar en errores comunes
+    for correct, mistakes in COMMON_MISTAKES.items():
+        if normalized_word in mistakes:
+            return correct
+    
+    return word
+
+def find_product_synonyms(word: str) -> List[str]:
+    """Encuentra sinónimos de un producto"""
+    normalized_word = normalize_text(word)
+    
+    for product, synonyms in PRODUCT_SYNONYMS.items():
+        if normalized_word in [normalize_text(s) for s in synonyms]:
+            return synonyms
+    
+    return [word]
+
+def fuzzy_search(query: str, product_names: List[str], threshold: float = 0.7) -> List[str]:
+    """
+    Búsqueda fuzzy que encuentra productos similares
+    """
+    normalized_query = normalize_text(query)
+    matches = []
+    
+    for product_name in product_names:
+        normalized_name = normalize_text(product_name)
+        
+        # Búsqueda exacta
+        if normalized_query in normalized_name or normalized_name in normalized_query:
+            matches.append(product_name)
+            continue
+        
+        # Búsqueda fuzzy
+        sim = similarity(normalized_query, normalized_name)
+        if sim >= threshold:
+            matches.append(product_name)
+    
+    return matches
+
+def improve_product_search(query: str, product_names: List[str]) -> List[str]:
+    """
+    Mejora la búsqueda de productos con múltiples estrategias:
+    1. Corrección de errores ortográficos
+    2. Búsqueda de sinónimos
+    3. Búsqueda fuzzy
+    """
+    results = set()
+    
+    # Normalizar query
+    normalized_query = normalize_text(query)
+    
+    # 1. Búsqueda directa
+    direct_matches = fuzzy_search(normalized_query, product_names, threshold=0.8)
+    results.update(direct_matches)
+    
+    # 2. Corregir errores comunes
+    corrected_query = correct_common_mistakes(normalized_query)
+    if corrected_query != normalized_query:
+        corrected_matches = fuzzy_search(corrected_query, product_names, threshold=0.8)
+        results.update(corrected_matches)
+    
+    # 3. Buscar sinónimos
+    synonyms = find_product_synonyms(normalized_query)
+    for synonym in synonyms:
+        synonym_matches = fuzzy_search(normalize_text(synonym), product_names, threshold=0.7)
+        results.update(synonym_matches)
+    
+    # 4. Búsqueda por palabras individuales
+    words = normalized_query.split()
+    for word in words:
+        if len(word) > 2:  # Solo palabras de más de 2 caracteres
+            word_matches = fuzzy_search(word, product_names, threshold=0.6)
+            results.update(word_matches)
+    
+    return list(results)
 
 def clean_query(text: str) -> str:
     """Limpia el texto removiendo signos de puntuación y normalizando"""
@@ -101,7 +237,6 @@ def clean_query(text: str) -> str:
               if unicodedata.category(c) != 'Mn')
     return text    
 
-   
 def detect_query_type(query: str) -> str:
     """Detecta el tipo de consulta basado en palabras clave"""
     query = normalize_text(query)

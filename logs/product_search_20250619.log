@@ -49,3 +49,36 @@
 2025-06-19 14:49:34 - INFO - Búsqueda iniciada - Tipo: generic | Original: 'tienes mas ejemplos??' | Normalizada: 'cama' | Continuación: True | Product Type: cama
 2025-06-19 14:49:34 - INFO - Total productos obtenidos: 50
 2025-06-19 14:49:34 - INFO - Total plantillas obtenidas: 3
+2025-06-19 21:05:21 - INFO - Programador de limpieza automática iniciado
+2025-06-19 21:05:21 - INFO - Conversación eliminada por edad: 42f98017-14ab-490d-b1cd-2fd10898fc22.json
+2025-06-19 21:05:21 - INFO - Limpieza completada: 1 conversaciones eliminadas
+2025-06-19 21:38:54 - INFO - Programador de limpieza automática iniciado
+2025-06-19 21:39:10 - INFO - Programador de limpieza automática iniciado
+2025-06-19 21:41:59 - INFO - Búsqueda iniciada - Tipo: generic | Original: 'tienes alguna siya??' | Normalizada: 'tienes alguna siya' | Continuación: False | Product Type: None
+2025-06-19 21:41:59 - INFO - Total productos obtenidos: 50
+2025-06-19 21:41:59 - INFO - Total plantillas obtenidas: 3
+2025-06-19 21:41:59 - INFO - Iniciando búsqueda por texto
+2025-06-19 21:41:59 - INFO - Iniciando búsqueda semántica
+2025-06-19 21:42:01 - INFO - Búsqueda semántica completada: 9 productos encontrados
+2025-06-19 21:42:03 - INFO - Búsqueda exitosa - 4 productos mostrados de 4 solicitados
+2025-06-19 21:42:38 - INFO - Búsqueda iniciada - Tipo: generic | Original: 'tienes alguna siillaa??' | Normalizada: 'tienes alguna siillaa' | Continuación: False | Product Type: None
+2025-06-19 21:42:38 - INFO - Total productos obtenidos: 50
+2025-06-19 21:42:38 - INFO - Total plantillas obtenidas: 3
+2025-06-19 21:42:38 - INFO - Iniciando búsqueda por texto
+2025-06-19 21:42:38 - INFO - Iniciando búsqueda semántica
+2025-06-19 21:42:40 - INFO - Búsqueda semántica completada: 8 productos encontrados
+2025-06-19 21:42:41 - INFO - Búsqueda exitosa - 4 productos mostrados de 4 solicitados
+2025-06-19 21:43:00 - INFO - Búsqueda iniciada - Tipo: generic | Original: 'tienes alguna cilla??' | Normalizada: 'tienes alguna cilla' | Continuación: False | Product Type: None
+2025-06-19 21:43:00 - INFO - Total productos obtenidos: 50
+2025-06-19 21:43:00 - INFO - Total plantillas obtenidas: 3
+2025-06-19 21:43:00 - INFO - Iniciando búsqueda por texto
+2025-06-19 21:43:00 - INFO - Iniciando búsqueda semántica
+2025-06-19 21:43:02 - INFO - Búsqueda semántica completada: 8 productos encontrados
+2025-06-19 21:43:04 - INFO - Búsqueda exitosa - 4 productos mostrados de 4 solicitados
+2025-06-19 21:43:23 - INFO - Búsqueda iniciada - Tipo: generic | Original: 'tienes alguna ciya??' | Normalizada: 'tienes alguna ciya' | Continuación: False | Product Type: None
+2025-06-19 21:43:24 - INFO - Total productos obtenidos: 50
+2025-06-19 21:43:24 - INFO - Total plantillas obtenidas: 3
+2025-06-19 21:43:24 - INFO - Iniciando búsqueda por texto
+2025-06-19 21:43:24 - INFO - Iniciando búsqueda semántica
+2025-06-19 21:43:25 - INFO - Búsqueda semántica completada: 7 productos encontrados
+2025-06-19 21:43:27 - INFO - Búsqueda exitosa - 4 productos mostrados de 4 solicitados

@@ -5,6 +5,9 @@ Sistema de IA para encontrar productos de decoración y muebles con conversacion
 ## Características
 
 - Búsqueda inteligente de productos por tipo y ambiente
+- **Corrección automática de errores ortográficos**
+- **Búsqueda fuzzy tolerante a errores de escritura**
+- **Reconocimiento de sinónimos de productos**
 - Conversaciones con contexto (recuerda productos mostrados)
 - Detección de continuaciones ("tienes más ejemplos?")
 - Limpieza automática de conversaciones antiguas
@@ -46,6 +49,8 @@ python -m uvicorn main:app --reload
 
 - Abrir `http://localhost:8000` en el navegador
 - Hacer preguntas como "tienes sillas para oficina?"
+- **El sistema corrige automáticamente errores ortográficos**
+- **Funciona con sinónimos: "asientos", "tablas", "sillones"**
 - Usar "tienes más ejemplos?" para continuar la búsqueda
 
 ## API
@@ -53,5 +58,30 @@ python -m uvicorn main:app --reload
 ```bash
 curl -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
-  -d '{"message": "tienes sillas?", "session_id": "123"}'
-``` 
+  -d '{"message": "tienes silas?", "session_id": "123"}'
+```
+
+## Mejoras de Reconocimiento
+
+### ✅ **Corrección de Errores Ortográficos**
+- "sila" → "silla"
+- "sofas" → "sofá" 
+- "lamparas" → "lámpara"
+- "mesas" → "mesa"
+
+### ✅ **Sinónimos Reconocidos**
+- "asientos" = "sillas"
+- "tablas" = "mesas"
+- "sillones" = "sofás"
+- "luminarias" = "lámparas"
+
+### ✅ **Búsqueda Fuzzy**
+- Tolerante a errores de escritura
+- Reconocimiento de palabras similares
+- Múltiples estrategias de búsqueda
+
+## Pruebas
+
+Ejecuta el script de prueba para ver las mejoras:
+```bash
+python test_spelling_correction.py 

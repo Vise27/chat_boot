@@ -5,7 +5,7 @@ import json
 import unicodedata
 from llama_sanitizer import sanitize_llama_response
 import logging
-from text_utils import normalize_text, contains_word, normalize_color
+from text_utils import normalize_text, contains_word, normalize_color, improve_product_search
 logging.basicConfig(level=logging.INFO)
 from dotenv import load_dotenv
 load_dotenv() 
@@ -45,8 +45,18 @@ async def ask_llama(prompt: str, max_retries: int = 3) -> str:
     return "[]"
 
 async def ask_llama_for_products(products: list[dict], user_message: str) -> list[str]:
-    """Versión mejorada que maneja la nueva estructura de productos"""
+    """Versión mejorada que maneja la nueva estructura de productos con corrección de errores"""
     try:
+        # Obtener nombres de productos
+        product_names = [p.get('product_name', '') for p in products if isinstance(p, dict)]
+        
+        # Usar búsqueda mejorada
+        matched_names = improve_product_search(user_message, product_names)
+        
+        if matched_names:
+            return matched_names
+        
+        # Si no hay resultados con búsqueda mejorada, usar LLM como respaldo
         normalized_query = normalize_text(user_message)
         
         product_list = []
