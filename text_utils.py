@@ -188,35 +188,94 @@ def fuzzy_search(query: str, product_names: List[str], threshold: float = 0.7) -
     
     return matches
 
-def improve_product_search(query: str, product_names: List[str]) -> List[str]:
+def normalize_singular_plural(word: str) -> List[str]:
+    """Normaliza una palabra para manejar singular/plural"""
+    word = word.lower().strip()
+    
+    # Reglas básicas de singular/plural en español
+    if word.endswith('s'):
+        # Es plural, agregar singular
+        singular = word[:-1]
+        return [word, singular]  # [plural, singular]
+    else:
+        # Es singular, agregar plural
+        plural = word + 's'
+        return [word, plural]  # [singular, plural]
+
+def smart_product_search(query: str, product_names: List[str]) -> List[str]:
     """
-    Mejora la búsqueda de productos con múltiples estrategias:
-    1. Corrección de errores ortográficos
-    2. Búsqueda de sinónimos
-    3. Búsqueda fuzzy
+    Búsqueda inteligente que maneja singular/plural y sinónimos
     """
     results = set()
     
     # Normalizar query
     normalized_query = normalize_text(query)
     
-    # 1. Búsqueda directa
+    # 1. Búsqueda directa con singular/plural
+    query_variations = normalize_singular_plural(normalized_query)
+    for variation in query_variations:
+        for product_name in product_names:
+            normalized_name = normalize_text(product_name)
+            if variation in normalized_name or normalized_name in variation:
+                results.add(product_name)
+    
+    # 2. Buscar sinónimos con singular/plural
+    synonyms = find_product_synonyms(normalized_query)
+    for synonym in synonyms:
+        synonym_variations = normalize_singular_plural(normalize_text(synonym))
+        for variation in synonym_variations:
+            for product_name in product_names:
+                normalized_name = normalize_text(product_name)
+                if variation in normalized_name or normalized_name in variation:
+                    results.add(product_name)
+    
+    # 3. Búsqueda por palabras individuales
+    words = normalized_query.split()
+    for word in words:
+        if len(word) > 2:  # Solo palabras de más de 2 caracteres
+            word_variations = normalize_singular_plural(word)
+            for variation in word_variations:
+                for product_name in product_names:
+                    normalized_name = normalize_text(product_name)
+                    if variation in normalized_name:
+                        results.add(product_name)
+    
+    return list(results)
+
+def improve_product_search(query: str, product_names: List[str]) -> List[str]:
+    """
+    Mejora la búsqueda de productos con múltiples estrategias:
+    1. Corrección de errores ortográficos
+    2. Búsqueda de sinónimos
+    3. Búsqueda fuzzy
+    4. Manejo de singular/plural
+    """
+    results = set()
+    
+    # Normalizar query
+    normalized_query = normalize_text(query)
+    
+    # 1. Búsqueda inteligente con singular/plural
+    smart_matches = smart_product_search(query, product_names)
+    results.update(smart_matches)
+    
+    # 2. Búsqueda directa
     direct_matches = fuzzy_search(normalized_query, product_names, threshold=0.8)
     results.update(direct_matches)
     
-    # 2. Corregir errores comunes
+    # 3. Corregir errores comunes
     corrected_query = correct_common_mistakes(normalized_query)
     if corrected_query != normalized_query:
         corrected_matches = fuzzy_search(corrected_query, product_names, threshold=0.8)
         results.update(corrected_matches)
     
-    # 3. Buscar sinónimos
+    # 4. Buscar sinónimos
     synonyms = find_product_synonyms(normalized_query)
     for synonym in synonyms:
         synonym_matches = fuzzy_search(normalize_text(synonym), product_names, threshold=0.7)
         results.update(synonym_matches)
     
-    # 4. Búsqueda por palabras individuales
+    # 5. Búsqueda por palabras individuales
     words = normalized_query.split()
     for word in words:
         if len(word) > 2:  # Solo palabras de más de 2 caracteres

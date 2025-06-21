@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from db import get_all_products, get_all_templates, get_all_template_products, init_db, close_db
 from llama_utils import (
     ask_llama_for_products, 
@@ -15,7 +14,7 @@ from product_analyzer import ProductAnalyzer
 from design_template_analyzer import DesignTemplateAnalyzer, generate_template_summary
 import logging
 from typing import Dict, List, Optional, Tuple
-from text_utils import normalize_text, detect_query_type, normalize_color
+from text_utils import normalize_text, detect_query_type, normalize_color, improve_product_search, smart_product_search
 import re
 import json
 import sys
@@ -28,6 +27,22 @@ import uuid
 import glob
 import threading
 
+
+# Configuración de la aplicación
+app = FastAPI(
+    title="API de Asistente de Decoración",
+    description="API para búsqueda inteligente de productos y plantillas de decoración",
+    version="1.0.0"
+)
+
+# Configurar CORS para permitir conexiones desde cualquier frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En producción, especifica los dominios permitidos
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Configuración del logging
 def setup_logging():
@@ -57,21 +72,30 @@ def setup_logging():
 logger = setup_logging()
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Tipos de productos disponibles (incluyendo singular y plural)
+PRODUCT_TYPES = [
+    "silla", "sillas", 
+    "mesa", "mesas", 
+    "sofá", "sofás", "sofa", "sofas",
+    "lámpara", "lámparas", "lampara", "lamparas", 
+    "mueble", "muebles", 
+    "estantería", "estanterías", "estanteria", "estanterias",
+    "cama", "camas", 
+    "armario", "armarios"
+]
+
+# Directorio para conversaciones
+CONVERSATIONS_DIR = "logs/conversations"
+os.makedirs(CONVERSATIONS_DIR, exist_ok=True)
+
+# Inicializar analizadores
 product_analyzer = ProductAnalyzer()
 
-PRODUCT_TYPES = ["silla", "mesa", "sofá", "lampara", "mueble", "estantería", "cama", "armario"]
-
 # Configuración del sistema de conversaciones
-CONVERSATIONS_DIR = "logs/conversations"
 CLEANUP_INTERVAL = 30 * 60  # 30 minutos
 SESSION_MAX_AGE = 2 * 60 * 60  # 2 horas
 MAX_SESSIONS = 1000
 MAX_CONVERSATIONS_SIZE_MB = 50
-
-# Crear directorio de conversaciones si no existe
-os.makedirs(CONVERSATIONS_DIR, exist_ok=True)
 
 class ProductSearchError(Exception):
     """Error personalizado para búsqueda de productos"""
@@ -82,7 +106,23 @@ async def search_products_by_type(products: List[dict], query: str) -> List[dict
     mentioned_type = next((pt for pt in PRODUCT_TYPES if pt in query), None)
     if not mentioned_type:
         return products
-        
+    
+    # Obtener nombres de productos para búsqueda inteligente
+    product_names = [p.get('product_name', '') for p in products if isinstance(p, dict)]
+    
+    # Usar búsqueda inteligente que maneja singular/plural y sinónimos
+    matched_names = smart_product_search(mentioned_type, product_names)
+    
+    if matched_names:
+        # Encontrar los productos que coinciden con los nombres encontrados
+        filtered_products = [
+            p for p in products 
+            if p.get('product_name', '') in matched_names
+        ]
+        logger.debug(f"Búsqueda por tipo inteligente '{mentioned_type}': {len(filtered_products)} productos encontrados")
+        return filtered_products
+    
+    # Fallback a búsqueda original
     filtered_products = [
         p for p in products
         if mentioned_type in normalize_text(p.get('product_name', '')) or 
@@ -94,31 +134,55 @@ async def search_products_by_type(products: List[dict], query: str) -> List[dict
 
 async def search_products_by_query(products: List[dict], query: str) -> List[dict]:
     """Busca productos usando diferentes estrategias"""
+    # Si el query está vacío o solo contiene números, no hacer búsqueda por texto
+    if not query.strip() or query.strip().isdigit():
+        logger.debug(f"Query vacío o solo números: '{query}', retornando lista vacía")
+        return []
+    
     query_words = query.split()
     
-    # Búsqueda exacta
-    exact_matches = [
-        p for p in products
-        if query == normalize_text(p.get('product_name', '')) or 
-           query == normalize_text(p.get('type', ''))
-    ]
+    # Filtrar palabras que son solo números (para evitar búsquedas por ID)
+    query_words = [word for word in query_words if not word.isdigit()]
     
-    if exact_matches:
-        logger.debug(f"Búsqueda exacta: {len(exact_matches)} productos encontrados")
-        return exact_matches
-
-    # Búsqueda por palabras
-    word_matches = [
-        p for p in products
-        if any(
-            word in normalize_text(p.get('product_name', '')) or 
-            word in normalize_text(p.get('type', ''))
-            for word in query_words
-        )
-    ]
+    # Si no quedan palabras después de filtrar números, no hacer búsqueda
+    if not query_words:
+        logger.debug(f"No quedan palabras válidas después de filtrar números")
+        return []
     
-    logger.debug(f"Búsqueda por palabras: {len(word_matches)} productos encontrados")
-    return word_matches
+    # Obtener nombres de productos para búsqueda inteligente
+    product_names = [p.get('product_name', '') for p in products if isinstance(p, dict)]
+    
+    # Usar búsqueda inteligente que maneja singular/plural y sinónimos
+    matched_names = smart_product_search(query, product_names)
+    
+    if matched_names:
+        # Encontrar los productos que coinciden con los nombres encontrados
+        matched_products = [
+            p for p in products 
+            if p.get('product_name', '') in matched_names
+        ]
+        logger.debug(f"Búsqueda inteligente: {len(matched_products)} productos encontrados")
+        return matched_products
+    
+    # Fallback: búsqueda por palabras individuales
+    word_matches = []
+    for word in query_words:
+        if len(word) > 2:  # Solo palabras de más de 2 caracteres
+            for p in products:
+                normalized_name = normalize_text(p.get('product_name', ''))
+                if word in normalized_name:
+                    word_matches.append(p)
+    
+    # Remover duplicados
+    seen_ids = set()
+    unique_matches = []
+    for p in word_matches:
+        if p.get('id') not in seen_ids:
+            seen_ids.add(p.get('id'))
+            unique_matches.append(p)
+    
+    logger.debug(f"Búsqueda por palabras: {len(unique_matches)} productos encontrados")
+    return unique_matches
 
 def extract_quantity_from_query(query: str) -> Tuple[int, str]:
     """Extrae la cantidad solicitada del query y retorna la cantidad y el query limpio"""
@@ -135,7 +199,11 @@ def extract_quantity_from_query(query: str) -> Tuple[int, str]:
         r'quiero\s*ver\s*(\d+)',
         r'mostrar\s*(\d+)',
         r'opciones\s*(\d+)',
-        r'productos\s*(\d+)'
+        r'productos\s*(\d+)',
+        r'unos?\s*(\d+)',  # "dame unos 5"
+        r'algunos?\s*(\d+)',  # "dame algunos 5"
+        r'(\d+)\s*(?:mas|más)',  # "5 más"
+        r'(\d+)\s*(?:ejemplos|opciones|productos)',  # "5 ejemplos"
     ]
     
     for pattern in patterns:
@@ -345,30 +413,37 @@ async def chat(request: Request):
                 matched_products = await ask_llama_for_attributes_query(all_products, user_query)
                 logger.info(f"Búsqueda por atributos completada: {len(matched_products)} productos encontrados")
             else:
-                # Búsqueda por texto
-                logger.info("Iniciando búsqueda por texto")
-                matched_products = await search_products_by_query(all_products, user_query)
-                
-                # Si no hay resultados, intentar búsqueda semántica
-                if not matched_products:
-                    logger.info("Iniciando búsqueda semántica")
-                    product_names = await ask_llama_for_products(all_products, user_query)
-                    matched_products = [
-                        p for p in all_products 
-                        if normalize_text(p.get('product_name', '')) in 
-                        [normalize_text(n) for n in product_names]
-                    ]
-                    logger.info(f"Búsqueda semántica completada: {len(matched_products)} productos encontrados")
-                
-                # Si aún no hay resultados, buscar por estilo
-                if not matched_products:
-                    logger.info("Iniciando búsqueda por estilo")
-                    style_products = await ask_llama_for_style_recommendations(all_products, user_query)
-                    matched_products = [
-                        p for p in all_products 
-                        if p['product_name'] in style_products
-                    ]
-                    logger.info(f"Búsqueda por estilo completada: {len(matched_products)} productos encontrados")
+                # Si es una consulta de continuación y el query está vacío, buscar por tipo de producto
+                if is_continuation and (not user_query.strip() or user_query.strip().isdigit()):
+                    logger.info("Consulta de continuación con query vacío, buscando por tipo de producto")
+                    if product_type:
+                        matched_products = await search_products_by_type(all_products, product_type)
+                        logger.info(f"Búsqueda por tipo '{product_type}' completada: {len(matched_products)} productos encontrados")
+                else:
+                    # Búsqueda por texto
+                    logger.info("Iniciando búsqueda por texto")
+                    matched_products = await search_products_by_query(all_products, user_query)
+                    
+                    # Si no hay resultados, intentar búsqueda semántica
+                    if not matched_products:
+                        logger.info("Iniciando búsqueda semántica")
+                        product_names = await ask_llama_for_products(all_products, user_query)
+                        matched_products = [
+                            p for p in all_products 
+                            if normalize_text(p.get('product_name', '')) in 
+                            [normalize_text(n) for n in product_names]
+                        ]
+                        logger.info(f"Búsqueda semántica completada: {len(matched_products)} productos encontrados")
+                    
+                    # Si aún no hay resultados, buscar por estilo
+                    if not matched_products:
+                        logger.info("Iniciando búsqueda por estilo")
+                        style_products = await ask_llama_for_style_recommendations(all_products, user_query)
+                        matched_products = [
+                            p for p in all_products 
+                            if p['product_name'] in style_products
+                        ]
+                        logger.info(f"Búsqueda por estilo completada: {len(matched_products)} productos encontrados")
         except Exception as e:
             logger.error(f"Error en búsqueda principal: {str(e)}")
             raise ProductSearchError("Error al buscar productos")
@@ -428,83 +503,27 @@ async def chat(request: Request):
         logger.error(f"Error inesperado en /chat: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error al procesar tu solicitud")
 
-@app.get("/")
-async def read_root():
-    return FileResponse("index.html")
+@app.get("/health")
+async def health_check():
+    """Endpoint de health check para verificar que la API está funcionando"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0"
+    }
 
-async def main():
-    # Inicializar componentes
-    product_analyzer = ProductAnalyzer()
-    db = Database()
-    
-    # Cargar productos
-    products = db.get_all_products()
-    
-    # Inicializar historial
-    chat_history = []
-    
-    print("\n=== Asistente de Decoración Inteligente ===")
-    print("Escribe 'salir' para terminar la conversación")
-    
-    while True:
-        try:
-            # Obtener entrada del usuario
-            user_input = input("\nTú: ").strip()
-            
-            if user_input.lower() == 'salir':
-                print("\n¡Gracias por usar el Asistente de Decoración!")
-                break
-            
-            # Agregar entrada del usuario al historial
-            chat_history.append({"role": "user", "content": user_input})
-            
-            # Analizar el ambiente y necesidades
-            analysis_prompt = f"""
-            Analiza la siguiente solicitud del usuario y extrae:
-            1. El ambiente específico (oficina, dormitorio, sala, etc.)
-            2. Las necesidades específicas mencionadas
-            3. El número de opciones solicitadas (si se especifica)
-            
-            Solicitud: {user_input}
-            
-            Responde en formato JSON:
-            {{
-                "ambiente": "tipo de ambiente",
-                "necesidades": ["necesidad1", "necesidad2", ...],
-                "num_opciones": número o null
-            }}
-            """
-            
-            analysis_response = await ask_llama(analysis_prompt)
-            analysis_data = json.loads(analysis_response)
-            
-            # Filtrar productos relevantes
-            relevant_products = product_analyzer.get_relevant_products(
-                products,
-                analysis_data["ambiente"],
-                analysis_data["necesidades"]
-            )
-            
-            # Limitar número de opciones si se especificó
-            num_options = analysis_data.get("num_opciones")
-            if num_options and isinstance(num_options, int) and num_options > 0:
-                relevant_products = relevant_products[:num_options]
-            
-            # Generar respuesta
-            if relevant_products:
-                response = await ask_llama_summary_for_products(relevant_products)
-            else:
-                response = "Lo siento, no encontré productos que se ajusten a tus necesidades específicas. ¿Podrías proporcionar más detalles sobre lo que estás buscando?"
-            
-            # Agregar respuesta al historial
-            chat_history.append({"role": "assistant", "content": response})
-            
-            # Mostrar respuesta
-            print(f"\nAsistente: {response}")
-            
-        except Exception as e:
-            print(f"\nError: {str(e)}")
-            print("Por favor, intenta reformular tu pregunta.")
+@app.get("/")
+async def root():
+    """Endpoint raíz con información de la API"""
+    return {
+        "message": "API de Asistente de Decoración",
+        "version": "1.0.0",
+        "endpoints": {
+            "chat": "/chat - POST - Búsqueda de productos y plantillas",
+            "health": "/health - GET - Estado de la API"
+        },
+        "documentation": "/docs - Documentación automática de la API"
+    }
 
 def load_conversation(session_id: str) -> Dict:
     """Carga la conversación de una sesión desde archivo"""
